@@ -40,8 +40,11 @@ RUN apt-get update && apt-get install -y \
     libgroove4 libgrooveplayer4 libgrooveloudness4 libgroovefingerprinter4 \
     && ln -sf /usr/bin/python3 /usr/bin/python
 
-# Install Node.js 8.17.0 (it just needs to run the pre-built binaries)
-RUN curl -fsSL https://nodejs.org/dist/v8.17.0/node-v8.17.0-linux-x64.tar.gz | tar -xzC /usr/local --strip-components=1
+
+# Install Node.js 20.x (for yt-dlp EJS support)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    ln -sf /usr/bin/node /usr/local/bin/node
 
 # Copy everything from the builder stage
 COPY --from=builder /home/groovebasin /home/groovebasin
