@@ -1,5 +1,5 @@
+
 # STAGE 1: Build the app in a legacy-compatible environment (Ubuntu 18.04)
-# This ensures native modules like node-groove and leveldown compile correctly.
 FROM ubuntu:18.04 AS builder
 
 WORKDIR /home/groovebasin
@@ -11,7 +11,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libgroove-dev libgrooveplayer-dev libgrooveloudness-dev \
     libgroovefingerprinter-dev
 
-# Install Node.js 8.17.0
+# Install Node.js 8.17.0 for the app (legacy native modules)
 RUN curl -fsSL https://nodejs.org/dist/v8.17.0/node-v8.17.0-linux-x64.tar.gz | tar -xzC /usr/local --strip-components=1
 
 # Install app dependencies
@@ -41,10 +41,19 @@ RUN apt-get update && apt-get install -y \
     && ln -sf /usr/bin/python3 /usr/bin/python
 
 
-# Install Node.js 20.x (for yt-dlp EJS support)
+# Install Node.js 8.17.0 for the app (legacy native modules)
+RUN curl -fsSL https://nodejs.org/dist/v8.17.0/node-v8.17.0-linux-x64.tar.gz | tar -xzC /usr/local --strip-components=1
+
+# Install Node.js 20.x for yt-dlp EJS support (as /usr/local/bin/node20)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
-    ln -sf /usr/bin/node /usr/local/bin/node
+    cp /usr/bin/node /usr/local/bin/node20 && \
+    apt-get remove -y nodejs && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
+# NOTE: To use yt-dlp with EJS, always invoke with:
+#   yt-dlp --js-runtimes node:/usr/local/bin/node20 ...
 
 # Copy everything from the builder stage
 COPY --from=builder /home/groovebasin /home/groovebasin
