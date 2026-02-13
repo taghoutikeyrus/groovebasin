@@ -17,6 +17,7 @@ var actuallyStreaming = false;
 var actuallyPlaying = false;
 var stillBuffering = false;
 var streamAudio = new Audio();
+var importStats = {};
 
 var selection = {
   ids: {
@@ -31,16 +32,16 @@ var selection = {
   rangeSelectAnchor: null,
   rangeSelectAnchorType: null,
   cursorType: null,
-  isLibrary: function(){
+  isLibrary: function () {
     return this.cursorType === 'artist' || this.cursorType === 'album' || this.cursorType === 'track';
   },
-  isQueue: function(){
+  isQueue: function () {
     return this.cursorType === 'queue';
   },
-  isPlaylist: function(){
+  isPlaylist: function () {
     return this.cursorType === 'playlist' || this.cursorType === 'playlistItem';
   },
-  clear: function(){
+  clear: function () {
     this.ids.artist = {};
     this.ids.album = {};
     this.ids.track = {};
@@ -48,14 +49,14 @@ var selection = {
     this.ids.playlist = {};
     this.ids.playlistItem = {};
   },
-  fullClear: function(){
+  fullClear: function () {
     this.clear();
     this.cursorType = null;
     this.cursor = null;
     this.rangeSelectAnchor = null;
     this.rangeSelectAnchorType = null;
   },
-  selectOne: function(selName, key, selectOnly) {
+  selectOne: function (selName, key, selectOnly) {
     if (selectOnly) {
       this.clear();
       this.cursorType = selName;
@@ -65,10 +66,10 @@ var selection = {
     }
     this.ids[selName][key] = true;
   },
-  selectOnly: function(selName, key) {
+  selectOnly: function (selName, key) {
     return selection.selectOne(selName, key, true);
   },
-  selectAll: function() {
+  selectAll: function () {
     this.clear();
     if (selection.isQueue()) {
       selectAllQueue();
@@ -82,7 +83,7 @@ var selection = {
       selectAllQueue();
     }
   },
-  isAtLeastNumSelected: function(num) {
+  isAtLeastNumSelected: function (num) {
     var result, k;
     if (this.isLibrary()) {
       result = num;
@@ -115,13 +116,13 @@ var selection = {
       return false;
     }
   },
-  isMulti: function() {
+  isMulti: function () {
     return this.isAtLeastNumSelected(2);
   },
-  isEmpty: function() {
+  isEmpty: function () {
     return !this.isAtLeastNumSelected(1);
   },
-  getPos: function(type, key){
+  getPos: function (type, key) {
     if (type == null) type = this.cursorType;
     if (key == null) key = this.cursor;
     var val;
@@ -179,7 +180,7 @@ var selection = {
     }
     return val;
   },
-  posToArr: function(pos){
+  posToArr: function (pos) {
     if (pos.type === 'library') {
       return [
         pos.artist && pos.artist.index,
@@ -195,12 +196,12 @@ var selection = {
       throw new Error("NothingSelected");
     }
   },
-  posEqual: function(pos1, pos2){
+  posEqual: function (pos1, pos2) {
     var arr1 = this.posToArr(pos1);
     var arr2 = this.posToArr(pos2);
     return compareArrays(arr1, arr2) === 0;
   },
-  posInBounds: function(pos){
+  posInBounds: function (pos) {
     if (pos.type === 'library') {
       return pos.artist != null;
     } else if (pos.type === 'playlist') {
@@ -211,10 +212,10 @@ var selection = {
       throw new Error("NothingSelected");
     }
   },
-  selectOnlyPos: function(pos) {
+  selectOnlyPos: function (pos) {
     return this.selectPos(pos, true);
   },
-  selectPos: function(pos, selectOnly) {
+  selectPos: function (pos, selectOnly) {
     if (pos.type === 'library') {
       if (pos.track) {
         return selection.selectOne('track', pos.track.key, selectOnly);
@@ -235,7 +236,7 @@ var selection = {
       throw new Error("NothingSelected");
     }
   },
-  selectOnlyFirstPos: function(type) {
+  selectOnlyFirstPos: function (type) {
     if (type === 'library') {
       this.selectOnly('artist', player.searchResults.artistList[0].key);
     } else if (type === 'queue') {
@@ -246,7 +247,7 @@ var selection = {
       throw new Error("unrecognized type: " + type);
     }
   },
-  selectOnlyLastPos: function(type) {
+  selectOnlyLastPos: function (type) {
     if (type === 'library') {
       var lastArtist = player.searchResults.artistList[player.searchResults.artistList.length - 1];
       if (isArtistExpanded(lastArtist)) {
@@ -272,7 +273,7 @@ var selection = {
       throw new Error("unrecognized type: " + type);
     }
   },
-  incrementPos: function(pos){
+  incrementPos: function (pos) {
     if (pos.type === 'library') {
       if (pos.track) {
         pos.track = pos.track.album.trackList[pos.track.index + 1];
@@ -325,7 +326,7 @@ var selection = {
       throw new Error("NothingSelected");
     }
   },
-  decrementPos: function(pos) {
+  decrementPos: function (pos) {
     if (pos.type === 'library') {
       if (pos.track != null) {
         pos.track = pos.track.album.trackList[pos.track.index - 1];
@@ -360,7 +361,7 @@ var selection = {
       throw new Error("NothingSelected");
     }
   },
-  containsPos: function(pos) {
+  containsPos: function (pos) {
     if (!this.posInBounds(pos)) return false;
     if (pos.type === 'library') {
       if (pos.track) {
@@ -382,7 +383,7 @@ var selection = {
       throw new Error("NothingSelected");
     }
   },
-  toTrackKeys: function(random){
+  toTrackKeys: function (random) {
     if (random == null) random = false;
     if (this.isLibrary()) {
       return libraryToTrackKeys();
@@ -407,22 +408,22 @@ var selection = {
         selRenderTrack(player.searchResults.trackTable[key]);
       }
       return getKeysInOrder(trackSet);
-      function selRenderArtist(artist){
+      function selRenderArtist(artist) {
         for (var i = 0; i < artist.albumList.length; i += 1) {
           var album = artist.albumList[i];
           selRenderAlbum(album);
         }
       }
-      function selRenderAlbum(album){
+      function selRenderAlbum(album) {
         for (var i = 0; i < album.trackList.length; i += 1) {
           var track = album.trackList[i];
           selRenderTrack(track);
         }
       }
-      function selRenderTrack(track){
+      function selRenderTrack(track) {
         trackSet[track.key] = selection.posToArr(getTrackSelPos(track));
       }
-      function getTrackSelPos(track){
+      function getTrackSelPos(track) {
         return {
           type: 'library',
           artist: track.album.artist,
@@ -431,7 +432,7 @@ var selection = {
         };
       }
     }
-    function queueToTrackKeys(){
+    function queueToTrackKeys() {
       var keys = [];
       for (var key in selection.ids.queue) {
         keys.push(player.queue.itemTable[key].track.key);
@@ -439,18 +440,18 @@ var selection = {
       if (random) shuffle(keys);
       return keys;
     }
-    function playlistToTrackKeys(){
+    function playlistToTrackKeys() {
       var playlistItemSet = {};
-      function renderPlaylist(playlist){
+      function renderPlaylist(playlist) {
         for (var i = 0; i < playlist.itemList.length; i += 1) {
           var item = playlist.itemList[i];
           renderPlaylistItem(item);
         }
       }
-      function renderPlaylistItem(item){
+      function renderPlaylistItem(item) {
         playlistItemSet[item.id] = selection.posToArr(getItemSelPos(item));
       }
-      function getItemSelPos(item){
+      function getItemSelPos(item) {
         return {
           type: 'playlist',
           playlist: item.playlist,
@@ -464,10 +465,10 @@ var selection = {
         renderPlaylistItem(player.playlistItemTable[key]);
       }
       var playlistItemKeys = getKeysInOrder(playlistItemSet);
-      return playlistItemKeys.map(function(playlistItemKey) { return player.playlistItemTable[playlistItemKey].track.key; });
+      return playlistItemKeys.map(function (playlistItemKey) { return player.playlistItemTable[playlistItemKey].track.key; });
     }
 
-    function getKeysInOrder(trackSet){
+    function getKeysInOrder(trackSet) {
       var key;
       var keys = [];
       if (random) {
@@ -484,7 +485,7 @@ var selection = {
           pos: trackSet[key],
         });
       }
-      trackArr.sort(function(a, b) {
+      trackArr.sort(function (a, b) {
         return compareArrays(a.pos, b.pos);
       });
       for (var i = 0; i < trackArr.length; i += 1) {
@@ -494,7 +495,7 @@ var selection = {
       return keys;
     }
   },
-  scrollTo: function() {
+  scrollTo: function () {
     var helpers = this.getHelpers();
     if (!helpers) return;
     if (this.isQueue()) {
@@ -514,7 +515,7 @@ var selection = {
       });
     }
   },
-  scrollToCursor: function() {
+  scrollToCursor: function () {
     var helpers = this.getHelpers();
     if (!helpers) return;
     if (this.isQueue()) {
@@ -525,7 +526,7 @@ var selection = {
       scrollThingToCursor(playlistsDom, helpers);
     }
   },
-  getHelpers: function() {
+  getHelpers: function () {
     if (player == null) return null;
     if (player.queue == null) return null;
     if (player.queue.itemTable == null) return null;
@@ -535,7 +536,7 @@ var selection = {
       queue: {
         ids: this.ids.queue,
         table: player.queue.itemTable,
-        getDiv: function(id) {
+        getDiv: function (id) {
           return document.getElementById(toQueueItemId(id));
         },
         toggleExpansion: null,
@@ -543,7 +544,7 @@ var selection = {
       artist: {
         ids: this.ids.artist,
         table: player.searchResults.artistTable,
-        getDiv: function(id) {
+        getDiv: function (id) {
           return document.getElementById(toArtistId(id));
         },
         toggleExpansion: toggleLibraryExpansion,
@@ -551,7 +552,7 @@ var selection = {
       album: {
         ids: this.ids.album,
         table: player.searchResults.albumTable,
-        getDiv: function(id) {
+        getDiv: function (id) {
           return document.getElementById(toAlbumId(id));
         },
         toggleExpansion: toggleLibraryExpansion,
@@ -559,7 +560,7 @@ var selection = {
       track: {
         ids: this.ids.track,
         table: player.searchResults.trackTable,
-        getDiv: function(id) {
+        getDiv: function (id) {
           return document.getElementById(toTrackId(id));
         },
         toggleExpansion: toggleLibraryExpansion,
@@ -567,7 +568,7 @@ var selection = {
       playlist: {
         ids: this.ids.playlist,
         table: player.playlistTable,
-        getDiv: function(id) {
+        getDiv: function (id) {
           return document.getElementById(toPlaylistId(id));
         },
         toggleExpansion: togglePlaylistExpansion,
@@ -575,7 +576,7 @@ var selection = {
       playlistItem: {
         ids: this.ids.playlistItem,
         table: player.playlistItemTable,
-        getDiv: function(id) {
+        getDiv: function (id) {
           return document.getElementById(toPlaylistItemId(id));
         },
         toggleExpansion: togglePlaylistExpansion,
@@ -768,22 +769,22 @@ var triggerRenderQueue = makeRenderCall(renderQueue, 100);
 var triggerPlaylistsUpdate = makeRenderCall(updatePlaylistsUi, 100);
 var triggerLabelsUpdate = makeRenderCall(updateLabelsUi, 100);
 var triggerResize = makeRenderCall(resizeDomElements, 20);
-var keyboardHandlers = (function() {
+var keyboardHandlers = (function () {
   var volumeDownHandler = {
-      ctrl: false,
-      alt: false,
-      shift: null,
-      handler: function() {
-        bumpVolume(-0.1);
-      }
+    ctrl: false,
+    alt: false,
+    shift: null,
+    handler: function () {
+      bumpVolume(-0.1);
+    }
   };
   var volumeUpHandler = {
-      ctrl: false,
-      alt: false,
-      shift: null,
-      handler: function() {
-        bumpVolume(0.1);
-      }
+    ctrl: false,
+    alt: false,
+    shift: null,
+    handler: function () {
+      bumpVolume(0.1);
+    }
   };
 
   return {
@@ -792,7 +793,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: null,
       shift: null,
-      handler: function(ev) {
+      handler: function (ev) {
         if (selection.isQueue()) {
           player.seek(selection.cursor, 0);
           player.play();
@@ -806,7 +807,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: false,
-      handler: function(){
+      handler: function () {
         if (startedDrag) {
           abortDrag();
           return;
@@ -821,7 +822,7 @@ var keyboardHandlers = (function() {
       ctrl: null,
       alt: false,
       shift: false,
-      handler: function(ev) {
+      handler: function (ev) {
         if (ev.ctrlKey) {
           toggleSelectionUnderCursor();
           refreshSelection();
@@ -863,10 +864,9 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: null,
-      handler: function(ev) {
+      handler: function (ev) {
         if ((havePerm('admin') && ev.shiftKey) ||
-           (havePerm('control') && !ev.shiftKey))
-        {
+          (havePerm('control') && !ev.shiftKey)) {
           handleDeletePressed(ev.shiftKey);
         }
       },
@@ -878,7 +878,7 @@ var keyboardHandlers = (function() {
       ctrl: null,
       alt: false,
       shift: false,
-      handler: function(ev) {
+      handler: function (ev) {
         if (ev.ctrlKey) {
           selection.selectAll();
           refreshSelection();
@@ -899,7 +899,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: null,
-      handler: function(ev) {
+      handler: function (ev) {
         if (ev.shiftKey) {
           onEditTagsContextMenu(ev);
         } else {
@@ -919,7 +919,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: false,
-      handler: function(ev) {
+      handler: function (ev) {
         onAddRemoveLabelContextMenu(ev);
       },
     },
@@ -928,7 +928,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: false,
-      handler: function() {
+      handler: function () {
         clickTab(tabs.playlists);
         newPlaylistNameDom.focus();
         newPlaylistNameDom.select();
@@ -939,7 +939,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: null,
-      handler: function(ev) {
+      handler: function (ev) {
         if (ev.shiftKey) {
           maybeRenamePlaylistAtCursor();
         } else {
@@ -959,7 +959,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: false,
-      handler: function() {
+      handler: function () {
         clickTab(tabs.events);
         chatBoxInputDom.focus();
         chatBoxInputDom.select();
@@ -971,7 +971,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: false,
-      handler: function() {
+      handler: function () {
         clickTab(tabs.upload);
         uploadByUrlDom.focus();
         uploadByUrlDom.select();
@@ -986,7 +986,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: true,
-      handler: function() {
+      handler: function () {
         player.prev();
       },
     },
@@ -997,7 +997,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: true,
-      handler: function() {
+      handler: function () {
         player.next();
       },
     },
@@ -1006,7 +1006,7 @@ var keyboardHandlers = (function() {
       ctrl: false,
       alt: false,
       shift: null,
-      handler: function(ev) {
+      handler: function (ev) {
         if (ev.shiftKey) {
           showKeyboardShortcuts(ev);
         } else {
@@ -1226,28 +1226,28 @@ var EDITABLE_PROPS = {
 };
 var EDIT_TAG_TYPES = {
   'string': {
-    get: function(domItem) {
+    get: function (domItem) {
       return domItem.value;
     },
-    set: function(domItem, value) {
+    set: function (domItem, value) {
       domItem.value = value || "";
     },
   },
   'integer': {
-    get: function(domItem) {
+    get: function (domItem) {
       var n = parseInt(domItem.value, 10);
       if (isNaN(n)) return null;
       return n;
     },
-    set: function(domItem, value) {
+    set: function (domItem, value) {
       domItem.value = value == null ? "" : value;
     },
   },
   'boolean': {
-    get: function(domItem) {
+    get: function (domItem) {
       return domItem.checked;
     },
-    set: function(domItem, value) {
+    set: function (domItem, value) {
       domItem.checked = !!value;
     },
   },
@@ -1259,26 +1259,26 @@ var chatCommands = {
 var escapeHtmlReplacements = { "&": "&amp;", '"': "&quot;", "<": "&lt;", ">": "&gt;" };
 
 var eventTypeMessageFns = {
-  autoDj: function(ev) {
+  autoDj: function (ev) {
     return "toggled Auto DJ";
   },
-  autoPause: function(ev) {
+  autoPause: function (ev) {
     return "auto pause because nobody is listening";
   },
-  chat: function(ev, flags) {
+  chat: function (ev, flags) {
     flags.safe = true;
     return linkify(escapeHtml(ev.text));
   },
-  clearQueue: function(ev) {
+  clearQueue: function (ev) {
     return "cleared the queue";
   },
-  connect: function(ev) {
+  connect: function (ev) {
     return "connected";
   },
-  currentTrack: function(ev) {
+  currentTrack: function (ev) {
     return "Now playing: " + getEventNowPlayingText(ev);
   },
-  import: function(ev) {
+  import: function (ev) {
     var prefix = ev.user ? "imported " : "anonymous user imported ";
     if (ev.pos > 1) {
       return prefix + ev.pos + " tracks";
@@ -1286,23 +1286,23 @@ var eventTypeMessageFns = {
       return prefix + getEventNowPlayingText(ev);
     }
   },
-  labelCreate: function(ev) {
+  labelCreate: function (ev) {
     return "created " + eventLabelName(ev);
   },
-  labelRename: function(ev) {
+  labelRename: function (ev) {
     return "renamed " + eventLabelName(ev, ev.text) + " to " + eventLabelName(ev);
   },
-  labelColorUpdate: function(ev) {
+  labelColorUpdate: function (ev) {
     if (ev.label) {
       return "changed color of " + eventLabelName(ev) + " from " + ev.text + " to " + ev.label.color;
     } else {
       return "changed color of (deleted label)";
     }
   },
-  labelDelete: function(ev) {
+  labelDelete: function (ev) {
     return "deleted " + eventLabelName(ev, ev.text);
   },
-  labelAdd: function(ev) {
+  labelAdd: function (ev) {
     if (ev.pos === 1) {
       if (ev.subCount === 1) {
         return "added " + eventLabelName(ev) + " to " + getEventNowPlayingText(ev);
@@ -1313,7 +1313,7 @@ var eventTypeMessageFns = {
       return "added labels to " + ev.pos + " tracks";
     }
   },
-  labelRemove: function(ev) {
+  labelRemove: function (ev) {
     if (ev.pos === 1) {
       if (ev.subCount === 1) {
         return "removed " + eventLabelName(ev) + " from " + getEventNowPlayingText(ev);
@@ -1324,42 +1324,42 @@ var eventTypeMessageFns = {
       return "removed labels from " + ev.pos + " tracks";
     }
   },
-  login: function(ev) {
+  login: function (ev) {
     return "logged in";
   },
-  move: function(ev) {
+  move: function (ev) {
     return "moved queue items";
   },
-  part: function(ev) {
+  part: function (ev) {
     return "disconnected";
   },
-  pause: function(ev) {
+  pause: function (ev) {
     return "pressed pause";
   },
-  play: function(ev) {
+  play: function (ev) {
     return "pressed play";
   },
-  playlistAddItems: function(ev) {
+  playlistAddItems: function (ev) {
     if (ev.pos === 1) {
       return "added " + getEventNowPlayingText(ev) + " to " + eventPlaylistName(ev);
     } else {
       return "added " + ev.pos + " tracks to " + eventPlaylistName(ev);
     }
   },
-  playlistCreate: function(ev) {
+  playlistCreate: function (ev) {
     return "created " + eventPlaylistName(ev);
   },
-  playlistDelete: function(ev) {
+  playlistDelete: function (ev) {
     return "deleted playlist " + ev.text;
   },
-  playlistMoveItems: function(ev) {
+  playlistMoveItems: function (ev) {
     if (ev.playlist) {
       return "moved " + ev.pos + " tracks in " + eventPlaylistName(ev);
     } else {
       return "moved " + ev.pos + " tracks in playlists";
     }
   },
-  playlistRemoveItems: function(ev) {
+  playlistRemoveItems: function (ev) {
     if (ev.playlist) {
       if (ev.pos === 1) {
         return "removed " + getEventNowPlayingText(ev) + " from " + eventPlaylistName(ev);
@@ -1370,48 +1370,48 @@ var eventTypeMessageFns = {
       return "removed " + ev.pos + " tracks from playlists";
     }
   },
-  playlistRename: function(ev) {
+  playlistRename: function (ev) {
     var name = ev.playlist ? ev.playlist.name : "(Deleted Playlist)";
     return "renamed playlist " + ev.text + " to " + name;
   },
-  queue: function(ev) {
+  queue: function (ev) {
     if (ev.pos === 1) {
       return "added to the queue: " + getEventNowPlayingText(ev);
     } else {
       return "added " + ev.pos + " tracks to the queue";
     }
   },
-  remove: function(ev) {
+  remove: function (ev) {
     if (ev.pos === 1) {
       return "removed from the queue: " + getEventNowPlayingText(ev);
     } else {
       return "removed " + ev.pos + " tracks from the queue";
     }
   },
-  register: function(ev) {
+  register: function (ev) {
     return "registered";
   },
-  seek: function(ev) {
+  seek: function (ev) {
     if (ev.pos === 0) {
       return "chose a different song";
     } else {
       return "seeked to " + formatTime(ev.pos);
     }
   },
-  shuffle: function(ev) {
+  shuffle: function (ev) {
     return "shuffled the queue";
   },
-  stop: function(ev) {
+  stop: function (ev) {
     return "pressed stop";
   },
-  streamStart: function(ev) {
+  streamStart: function (ev) {
     if (ev.user) {
       return "started streaming";
     } else {
       return "anonymous user started streaming";
     }
   },
-  streamStop: function(ev) {
+  streamStop: function (ev) {
     if (ev.user) {
       return "stopped streaming";
     } else {
@@ -1432,7 +1432,7 @@ var addRemoveLabelDialogFilteredList = [];
 
 init();
 
-function saveLocalState(){
+function saveLocalState() {
   localStorage.setItem('state', JSON.stringify(localState));
 }
 
@@ -1454,19 +1454,19 @@ function loadLocalState() {
 }
 
 function selectAllQueue() {
-  player.queue.itemList.forEach(function(item) {
+  player.queue.itemList.forEach(function (item) {
     selection.ids.queue[item.id] = true;
   });
 }
 
 function selectAllLibrary() {
-  player.searchResults.artistList.forEach(function(artist) {
+  player.searchResults.artistList.forEach(function (artist) {
     selection.ids.artist[artist.key] = true;
   });
 }
 
 function selectAllPlaylists() {
-  player.playlistList.forEach(function(playlist) {
+  player.playlistList.forEach(function (playlist) {
     selection.ids.playlist[playlist.id] = true;
   });
 }
@@ -1491,7 +1491,7 @@ function scrollAreaIntoView(scrollArea, itemTop, itemBottom) {
   }
 }
 
-function scrollThingToSelection(scrollArea, helpers){
+function scrollThingToSelection(scrollArea, helpers) {
   var topPos = null;
   var bottomPos = null;
 
@@ -1571,13 +1571,13 @@ function renderQueue() {
   for (i = queueItemsDom.childElementCount; i < itemList.length; i += 1) {
     queueItemsDom.insertAdjacentHTML('beforeend',
       '<div class="pl-item">' +
-        '<span class="track"></span>' +
-        '<span class="time"></span>' +
-        '<span class="middle">' +
-          '<span class="title"></span>' +
-          '<span class="artist"></span>' +
-          '<span class="album"></span>' +
-        '</span>' +
+      '<span class="track"></span>' +
+      '<span class="time"></span>' +
+      '<span class="middle">' +
+      '<span class="title"></span>' +
+      '<span class="artist"></span>' +
+      '<span class="album"></span>' +
+      '</span>' +
       '</div>');
   }
   // remove the extra dom entries
@@ -1632,7 +1632,7 @@ function compareNameAndId(a, b) {
   return operatorCompare(a.id, b.id);
 }
 
-function operatorCompare(a, b){
+function operatorCompare(a, b) {
   if (a === b) {
     return 0;
   } else if (a > b) {
@@ -1721,8 +1721,8 @@ function refreshSelection() {
     updateQueueDuration();
     return;
   }
-  [queueItemsDom, libraryArtistsDom, playlistsListDom].forEach(function(domElement) {
-    ['selected', 'cursor'].forEach(function(className) {
+  [queueItemsDom, libraryArtistsDom, playlistsListDom].forEach(function (domElement) {
+    ['selected', 'cursor'].forEach(function (className) {
       var elementList = domElement.getElementsByClassName(className);
       for (var i = elementList.length - 1; i >= 0; i--) {
         elementList[i].classList.remove(className);
@@ -1776,12 +1776,12 @@ function refreshSelection() {
 
 function getValidIds(selectionType) {
   switch (selectionType) {
-    case 'queue':  return player.queue.itemTable;
+    case 'queue': return player.queue.itemTable;
     case 'artist': return player.library.artistTable;
-    case 'album':  return player.library.albumTable;
-    case 'track':  return player.library.trackTable;
-    case 'playlist':  return player.playlistTable;
-    case 'playlistItem':  return player.playlistItemTable;
+    case 'album': return player.library.albumTable;
+    case 'track': return player.library.trackTable;
+    case 'playlist': return player.playlistTable;
+    case 'playlistItem': return player.playlistItemTable;
   }
   throw new Error("BadSelectionType");
 }
@@ -1840,7 +1840,7 @@ function updateAddToPlaylistDialogDisplay() {
   var loweredFilter = addToPlaylistFilter.value.toLowerCase();
   addToPlaylistDialogFilteredList = [];
   var exactMatch = false;
-  player.playlistList.forEach(function(playlist) {
+  player.playlistList.forEach(function (playlist) {
     if (playlist.name.toLowerCase().indexOf(loweredFilter) >= 0) {
       addToPlaylistDialogFilteredList.push(playlist);
       if (addToPlaylistFilter.value === playlist.name) {
@@ -1881,11 +1881,11 @@ function renderPlaylists() {
   for (i = playlistsListDom.childElementCount; i < playlistList.length; i += 1) {
     playlistsListDom.insertAdjacentHTML('beforeend',
       '<li>' +
-        '<div class="clickable expandable" data-type="playlist">' +
-          '<div class="icon"></div>' +
-          '<span></span>' +
-        '</div>' +
-        '<ul></ul>' +
+      '<div class="clickable expandable" data-type="playlist">' +
+      '<div class="icon"></div>' +
+      '<span></span>' +
+      '</div>' +
+      '<ul></ul>' +
       '</li>');
   }
   // remove the extra dom entries
@@ -1932,11 +1932,11 @@ function renderLibrary() {
   for (i = libraryArtistsDom.childElementCount; i < artistList.length; i += 1) {
     libraryArtistsDom.insertAdjacentHTML('beforeend',
       '<li>' +
-        '<div class="clickable expandable" data-type="artist">' +
-          '<div class="icon"></div>' +
-          '<span></span>' +
-        '</div>' +
-        '<ul></ul>' +
+      '<div class="clickable expandable" data-type="artist">' +
+      '<div class="icon"></div>' +
+      '<span></span>' +
+      '</div>' +
+      '<ul></ul>' +
       '</li>');
   }
   // remove the extra dom entries
@@ -1987,7 +1987,7 @@ function renderLibrary() {
   }
 }
 
-function getCurrentTrackPosition(){
+function getCurrentTrackPosition() {
   if (player.trackStartDate != null && player.isPlaying === true) {
     return (new Date() - player.trackStartDate) / 1000;
   } else {
@@ -2049,7 +2049,7 @@ function renderNowPlaying() {
     trackDisplayDom.innerHTML = "&nbsp;";
   }
   var oldClass = (player.isPlaying === true) ? 'icon-play' : 'icon-pause';
-  var newClass = (player.isPlaying === true) ? 'icon-pause': 'icon-play';
+  var newClass = (player.isPlaying === true) ? 'icon-pause' : 'icon-play';
   nowPlayingToggleIconDom.classList.remove(oldClass);
   nowPlayingToggleIconDom.classList.add(newClass);
   trackSliderDom.disabled = (player.isPlaying == null);
@@ -2059,7 +2059,7 @@ function renderNowPlaying() {
 
 function render() {
   var hideMainErr = (loadStatus === LoadStatus.GoodToGo);
-  queueWindowDom.style.display= hideMainErr ? "" : "none";
+  queueWindowDom.style.display = hideMainErr ? "" : "none";
   leftWindowDom.style.display = hideMainErr ? "" : "none";
   nowPlayingDom.style.display = hideMainErr ? "" : "none";
   mainErrMsgDom.style.display = hideMainErr ? "none" : "";
@@ -2077,14 +2077,14 @@ function render() {
 }
 
 function renderArtist(ul, albumList) {
-  albumList.forEach(function(album) {
+  albumList.forEach(function (album) {
     ul.insertAdjacentHTML('beforeend',
       '<li>' +
-        '<div class="clickable expandable" data-type="album">' +
-          '<div class="icon icon-triangle-1-e"></div>' +
-          '<span></span>' +
-        '</div>' +
-        '<ul style="display: none;"></ul>' +
+      '<div class="clickable expandable" data-type="album">' +
+      '<div class="icon icon-triangle-1-e"></div>' +
+      '<span></span>' +
+      '</div>' +
+      '<ul style="display: none;"></ul>' +
       '</li>');
     var liDom = ul.lastChild;
     var divDom = liDom.children[0];
@@ -2094,12 +2094,12 @@ function renderArtist(ul, albumList) {
     spanDom.textContent = album.name || '[Unknown Album]';
 
     var artistUlDom = liDom.children[1];
-    album.trackList.forEach(function(track) {
+    album.trackList.forEach(function (track) {
       artistUlDom.insertAdjacentHTML('beforeend',
         '<li>' +
-          '<div class="clickable" data-type="track">' +
-            '<span></span>' +
-          '</div>' +
+        '<div class="clickable" data-type="track">' +
+        '<span></span>' +
+        '</div>' +
         '</li>');
       var trackLiDom = artistUlDom.lastChild;
       var trackDivDom = trackLiDom.children[0];
@@ -2120,12 +2120,12 @@ function renderArtist(ul, albumList) {
 }
 
 function renderPlaylist(ul, playlist) {
-  playlist.itemList.forEach(function(item) {
+  playlist.itemList.forEach(function (item) {
     ul.insertAdjacentHTML('beforeend',
       '<li>' +
-        '<div class="clickable" data-type="playlistItem">' +
-          '<span></span>' +
-        '</div>' +
+      '<div class="clickable" data-type="playlistItem">' +
+      '<span></span>' +
+      '</div>' +
       '</li>');
     var liDom = ul.lastChild;
     var divDom = liDom.children[0];
@@ -2153,8 +2153,7 @@ function genericToggleExpansion(li, options) {
   var div = li.children[0];
   var ul = li.children[1];
   if (div.getAttribute('data-type') === topLevelType &&
-      !li.getAttribute('data-cached'))
-  {
+    !li.getAttribute('data-cached')) {
     li.setAttribute('data-cached', "1");
     var key = div.getAttribute('data-key');
     renderDom(ul, key);
@@ -2164,7 +2163,7 @@ function genericToggleExpansion(li, options) {
   }
   var isVisible = isDomItemVisible(ul);
   var oldClass = isVisible ? ICON_COLLAPSED : ICON_EXPANDED;
-  var newClass = isVisible ? ICON_EXPANDED  : ICON_COLLAPSED;
+  var newClass = isVisible ? ICON_EXPANDED : ICON_COLLAPSED;
   div.children[0].classList.remove(oldClass);
   div.children[0].classList.add(newClass);
 }
@@ -2172,7 +2171,7 @@ function genericToggleExpansion(li, options) {
 function toggleLibraryExpansion(li) {
   genericToggleExpansion(li, {
     topLevelType: 'artist',
-    renderDom: function(ul, key) {
+    renderDom: function (ul, key) {
       var albumList = player.searchResults.artistTable[key].albumList;
       renderArtist(ul, albumList);
     },
@@ -2182,7 +2181,7 @@ function toggleLibraryExpansion(li) {
 function togglePlaylistExpansion(li) {
   genericToggleExpansion(li, {
     topLevelType: 'playlist',
-    renderDom: function(ul, key) {
+    renderDom: function (ul, key) {
       var playlist = player.playlistTable[key];
       renderPlaylist(ul, playlist);
     },
@@ -2190,7 +2189,7 @@ function togglePlaylistExpansion(li) {
 }
 
 function maybeDeleteTracks(keysList) {
-  var fileList = keysList.map(function(key) {
+  var fileList = keysList.map(function (key) {
     return player.library.trackTable[key].file;
   });
   var listText = fileList.slice(0, 7).join("\n  ");
@@ -2257,7 +2256,7 @@ function nobodyListening() {
   return getStreamerCount() === 0 && !hardwarePlaybackOn;
 }
 
-function togglePlayback(){
+function togglePlayback() {
   if (player.isPlaying === true) {
     player.pause();
   } else if (player.isPlaying === false) {
@@ -2269,7 +2268,7 @@ function togglePlayback(){
   // else we haven't received state from server yet
 }
 
-function toggleAutoDj(){
+function toggleAutoDj() {
   autoDjOn = !autoDjOn;
   player.sendCommand('autoDjOn', autoDjOn);
   renderAutoDj();
@@ -2295,19 +2294,19 @@ function removeContextMenu() {
   return false;
 }
 
-function isPlaylistExpanded(playlist){
+function isPlaylistExpanded(playlist) {
   var li = document.getElementById(toPlaylistId(playlist.id)).parentNode;
   if (!li.getAttribute('data-cached')) return false;
   return isDomItemVisible(li.lastChild);
 }
 
-function isArtistExpanded(artist){
+function isArtistExpanded(artist) {
   var li = document.getElementById(toArtistId(artist.key)).parentNode;
   if (!li.getAttribute('data-cached')) return false;
   return isDomItemVisible(li.lastChild);
 }
 
-function isAlbumExpanded(album){
+function isAlbumExpanded(album) {
   var albumElem = document.getElementById(toAlbumId(album.key));
   var li = albumElem.parentNode;
   return isDomItemVisible(li.lastChild);
@@ -2448,7 +2447,7 @@ function hideShowAuthEdit(visible) {
 }
 
 function removeAllQueueItemBorders() {
-  Array.prototype.forEach.call(queueItemsDom.getElementsByClassName('pl-item'), function(domItem) {
+  Array.prototype.forEach.call(queueItemsDom.getElementsByClassName('pl-item'), function (domItem) {
     domItem.classList.remove('border-top');
     domItem.classList.remove('border-bottom');
   });
@@ -2472,7 +2471,7 @@ function performDrag(ev, callbacks) {
     }
     abortDrag = noop;
   }
-  function onDragMove(ev){
+  function onDragMove(ev) {
     var dist, result;
     if (!startedDrag) {
       dist = Math.pow(ev.pageX - startDragX, 2) + Math.pow(ev.pageY - startDragY, 2);
@@ -2520,8 +2519,8 @@ function clearSelectionAndHideMenu() {
 function onWindowKeyDown(ev) {
   var handler = keyboardHandlers[ev.which];
   if (handler == null) return;
-  if (handler.ctrl  != null && handler.ctrl  !== ev.ctrlKey)  return;
-  if (handler.alt   != null && handler.alt   !== ev.altKey)   return;
+  if (handler.ctrl != null && handler.ctrl !== ev.ctrlKey) return;
+  if (handler.alt != null && handler.alt !== ev.altKey) return;
   if (handler.shift != null && handler.shift !== ev.shiftKey) return;
   ev.preventDefault();
   ev.stopPropagation();
@@ -2578,10 +2577,10 @@ function setUpGenericUi() {
 function onModalKeyDown(ev) {
   ev.stopPropagation();
   switch (ev.which) {
-  case 27: // Escape
-    ev.preventDefault();
-    closeOpenDialog();
-    return;
+    case 27: // Escape
+      ev.preventDefault();
+      closeOpenDialog();
+      return;
   }
 }
 
@@ -2609,52 +2608,52 @@ function onAddToPlaylistNewClick(ev) {
 function onAddToPlaylistFilterKeyDown(ev) {
   ev.stopPropagation();
   switch (ev.which) {
-  case 27: // Escape
-    ev.preventDefault();
-    if (addToPlaylistFilter.value === "") {
-      closeOpenDialog();
-    } else {
-      addToPlaylistFilter.value = "";
-    }
-    return;
-  case 13: // Enter
-    ev.preventDefault();
-    if (addToPlaylistDialogFilteredList.length === 0) {
-      onAddToPlaylistNewClick(ev);
-    } else {
-      var playlistId = addToPlaylistDialogFilteredList[0].id;
-      player.queueOnPlaylist(playlistId, selection.toTrackKeys());
-      if (!ev.shiftKey) {
+    case 27: // Escape
+      ev.preventDefault();
+      if (addToPlaylistFilter.value === "") {
         closeOpenDialog();
+      } else {
+        addToPlaylistFilter.value = "";
       }
-    }
-    return;
+      return;
+    case 13: // Enter
+      ev.preventDefault();
+      if (addToPlaylistDialogFilteredList.length === 0) {
+        onAddToPlaylistNewClick(ev);
+      } else {
+        var playlistId = addToPlaylistDialogFilteredList[0].id;
+        player.queueOnPlaylist(playlistId, selection.toTrackKeys());
+        if (!ev.shiftKey) {
+          closeOpenDialog();
+        }
+      }
+      return;
   }
 }
 
 function onAddRemoveLabelFilterKeyDown(ev) {
   ev.stopPropagation();
   switch (ev.which) {
-  case 27: // Escape
-    ev.preventDefault();
-    if (addRemoveLabelFilter.value === "") {
-      closeOpenDialog();
-    } else {
-      addRemoveLabelFilter.value = "";
-    }
-    return;
-  case 13: // Enter
-    ev.preventDefault();
-    if (addRemoveLabelDialogFilteredList.length === 0) {
-      onAddRemoveLabelNewClick(ev);
-    } else {
-      var labelId = addRemoveLabelDialogFilteredList[0].id;
-      toggleLabelOnSelection(labelId);
-      if (!ev.shiftKey) {
+    case 27: // Escape
+      ev.preventDefault();
+      if (addRemoveLabelFilter.value === "") {
         closeOpenDialog();
+      } else {
+        addRemoveLabelFilter.value = "";
       }
-    }
-    return;
+      return;
+    case 13: // Enter
+      ev.preventDefault();
+      if (addRemoveLabelDialogFilteredList.length === 0) {
+        onAddRemoveLabelNewClick(ev);
+      } else {
+        var labelId = addRemoveLabelDialogFilteredList[0].id;
+        toggleLabelOnSelection(labelId);
+        if (!ev.shiftKey) {
+          closeOpenDialog();
+        }
+      }
+      return;
   }
 }
 
@@ -2662,7 +2661,7 @@ function updateAddRemoveLabelDialogDisplay(ev) {
   var loweredFilter = addRemoveLabelFilter.value.toLowerCase();
   addRemoveLabelDialogFilteredList = [];
   var exactMatch = false;
-  player.library.labelList.forEach(function(label) {
+  player.library.labelList.forEach(function (label) {
     if (label.name.toLowerCase().indexOf(loweredFilter) >= 0) {
       addRemoveLabelDialogFilteredList.push(label);
       if (addRemoveLabelFilter.value === label.name) {
@@ -2680,15 +2679,15 @@ function updateAddRemoveLabelDialogDisplay(ev) {
   for (i = addRemoveLabelList.childElementCount; i < addRemoveLabelDialogFilteredList.length; i += 1) {
     addRemoveLabelList.insertAdjacentHTML('beforeend',
       '<div class="label-dialog-item">' +
-        '<input type="checkbox" class="label-dialog-checkbox">' +
-        '<button class="button label-dialog-trash">' +
-          '<label class="icon icon-trash"></label>' +
-        '</button>' +
-        '<button class="button label-dialog-rename">' +
-          '<label class="icon icon-tag"></label>' +
-        '</button>' +
-        '<input type="color" class="label-dialog-color"></span>' +
-        '<span class="label-dialog-name"></span>' +
+      '<input type="checkbox" class="label-dialog-checkbox">' +
+      '<button class="button label-dialog-trash">' +
+      '<label class="icon icon-trash"></label>' +
+      '</button>' +
+      '<button class="button label-dialog-rename">' +
+      '<label class="icon icon-tag"></label>' +
+      '</button>' +
+      '<input type="color" class="label-dialog-color"></span>' +
+      '<span class="label-dialog-name"></span>' +
       '</div>');
   }
   // remove the extra dom entries
@@ -2696,7 +2695,7 @@ function updateAddRemoveLabelDialogDisplay(ev) {
     addRemoveLabelList.removeChild(addRemoveLabelList.lastChild);
   }
 
-  var selectedTracks = selection.toTrackKeys().map(function(key) {
+  var selectedTracks = selection.toTrackKeys().map(function (key) {
     return player.library.trackTable[key];
   });
 
@@ -2769,16 +2768,15 @@ function onAddRemoveLabelListClick(ev) {
   }
 
   if (target.classList.contains('label-dialog-trash')) {
-      if (!confirm("You are about to delete the label \"" + label.name + "\"")) {
-        return;
-      }
-      player.deleteLabels([labelId]);
+    if (!confirm("You are about to delete the label \"" + label.name + "\"")) {
+      return;
+    }
+    player.deleteLabels([labelId]);
   } else if (target.classList.contains('label-dialog-rename')) {
     var newName = prompt("Rename label \"" + label.name + "\" to:", label.name);
     player.renameLabel(labelId, newName);
   } else if (!ev.target.classList.contains("label-dialog-color") &&
-             !ev.target.classList.contains("label-dialog-checkbox"))
-  {
+    !ev.target.classList.contains("label-dialog-checkbox")) {
     var keepOpen = ev.shiftKey;
     if (!keepOpen) closeOpenDialog();
 
@@ -2789,7 +2787,7 @@ function onAddRemoveLabelListClick(ev) {
 
 function toggleLabelOnSelection(labelId) {
   var selectionTrackKeys = selection.toTrackKeys();
-  var selectedTracks = selectionTrackKeys.map(function(key) {
+  var selectedTracks = selectionTrackKeys.map(function (key) {
     return player.library.trackTable[key];
   });
 
@@ -2825,7 +2823,7 @@ function handleAutoDjClick(ev) {
 
 function getFirstChildToward(parentDom, childDom) {
   if (childDom === parentDom) return null;
-  for (;;) {
+  for (; ;) {
     var nextNode = childDom.parentNode;
     if (nextNode === parentDom) return childDom;
     childDom = nextNode;
@@ -2833,7 +2831,7 @@ function getFirstChildToward(parentDom, childDom) {
 }
 
 function firstElemWithClass(parentDom, className, childDom) {
-  for (;;) {
+  for (; ;) {
     if (childDom.classList.contains(className)) {
       return childDom;
     }
@@ -2893,7 +2891,7 @@ function onQueueItemsMouseDown(ev) {
     refreshSelection();
     if (!skipDrag) {
       performDrag(ev, {
-        complete: function(result, ev){
+        complete: function (result, ev) {
           var delta, id;
           delta = {
             top: 0,
@@ -2901,7 +2899,7 @@ function onQueueItemsMouseDown(ev) {
           };
           player.moveIds(Object.keys(selection.ids.queue), result.previousKey, result.nextKey);
         },
-        cancel: function(){
+        cancel: function () {
           selection.selectOnly('queue', trackId);
           refreshSelection();
         }
@@ -3019,7 +3017,7 @@ function setUpPlaylistsUi() {
 
   genericTreeUi(playlistsListDom, {
     toggleExpansion: togglePlaylistExpansion,
-    isSelectionOwner: function() {
+    isSelectionOwner: function () {
       return selection.isPlaylist();
     },
   });
@@ -3097,7 +3095,7 @@ function showEditTags() {
 }
 
 function setUpEditTagsUi() {
-  Array.prototype.forEach.call(editTagsDialogDom.getElementsByTagName("input"), function(domItem) {
+  Array.prototype.forEach.call(editTagsDialogDom.getElementsByTagName("input"), function (domItem) {
     domItem.addEventListener('keydown', onInputKeyDown, false);
   });
   for (var propName in EDITABLE_PROPS) {
@@ -3123,7 +3121,7 @@ function setUpEditTagsUi() {
   }
 
   function createChangeListener(multiCheckBoxDom) {
-    return function() {
+    return function () {
       multiCheckBoxDom.checked = true;
     };
   }
@@ -3283,7 +3281,7 @@ function clickTab(tab) {
 }
 
 function setUpTabListener(tab) {
-  tab.tab.addEventListener('click', function(ev) {
+  tab.tab.addEventListener('click', function (ev) {
     clickTab(tab);
   }, false);
 }
@@ -3433,11 +3431,11 @@ function updateLastFmSettingsUi() {
   settingsLastFmInDom.style.display = localState.lastfm.username ? "" : "none";
   settingsLastFmOutDom.style.display = localState.lastfm.username ? "none" : "";
   settingsLastFmUserDom.setAttribute('href', "http://last.fm/user/" +
-      encodeURIComponent(localState.lastfm.username));
+    encodeURIComponent(localState.lastfm.username));
   settingsLastFmUserDom.textContent = localState.lastfm.username;
   var authUrl = "https://www.last.fm/api/auth?api_key=" +
-        encodeURIComponent(lastFmApiKey) + "&cb=" +
-        encodeURIComponent(location.protocol + "//" + location.host + "/");
+    encodeURIComponent(lastFmApiKey) + "&cb=" +
+    encodeURIComponent(location.protocol + "//" + location.host + "/");
   lastFmAuthUrlDom.setAttribute('href', authUrl);
 
   if (localState.lastfm.scrobbling_on) {
@@ -3788,8 +3786,12 @@ function renderImportProgress() {
   for (i = importProgressListDom.childElementCount; i < player.importProgressList.length; i += 1) {
     importProgressListDom.insertAdjacentHTML('beforeend',
       '<li class="progress">' +
-        '<span class="name"></span> ' +
-        '<span class="percent"></span>' +
+      '<span class="name"></span>' +
+      '<div class="bar-container"><div class="bar"></div></div>' +
+      '<div class="info">' +
+      '<span class="size"></span>' +
+      '<span class="speed"></span>' +
+      '</div>' +
       '</li>');
   }
   // remove extra dom entries
@@ -3797,16 +3799,49 @@ function renderImportProgress() {
     importProgressListDom.removeChild(importProgressListDom.lastChild);
   }
   // overwrite existing dom entries
+  var now = Date.now();
   var domItems = importProgressListDom.children;
   for (i = 0; i < player.importProgressList.length; i += 1) {
     var domItem = domItems[i];
     ev = player.importProgressList[i];
+
     domItem.children[0].textContent = ev.filenameHintWithoutPath;
-    var percent = humanSize(ev.bytesWritten, 1);
+
+    var barContainer = domItem.children[1];
+    var bar = barContainer.children[0];
     if (ev.size) {
-      percent += " / " + humanSize(ev.size, 1);
+      bar.style.width = (ev.bytesWritten / ev.size * 100) + "%";
+    } else {
+      bar.style.width = "100%";
     }
-    domItem.children[1].textContent = percent;
+
+    var infoSpan = domItem.children[2];
+    var sizeLabel = infoSpan.children[0];
+    var speedLabel = infoSpan.children[1];
+
+    var stats = importStats[ev.id];
+    if (!stats) {
+      stats = importStats[ev.id] = {
+        lastBytes: ev.bytesWritten,
+        lastTime: now,
+        speed: 0
+      };
+    } else {
+      var timeDiff = now - stats.lastTime;
+      if (timeDiff > 1000) {
+        var bytesDiff = ev.bytesWritten - stats.lastBytes;
+        stats.speed = bytesDiff / (timeDiff / 1000);
+        stats.lastBytes = ev.bytesWritten;
+        stats.lastTime = now;
+      }
+    }
+
+    var sizeText = humanSize(ev.bytesWritten, 1);
+    if (ev.size) {
+      sizeText += " / " + humanSize(ev.size, 1);
+    }
+    sizeLabel.textContent = sizeText;
+    speedLabel.textContent = stats.speed > 0 ? (humanSize(stats.speed, 1) + "/s") : "";
   }
 
   importProgressDom.style.display = (player.importProgressList.length > 0) ? "" : "none";
@@ -3823,9 +3858,9 @@ function renderEvents() {
   for (i = eventsListDom.childElementCount; i < player.eventsList.length; i += 1) {
     eventsListDom.insertAdjacentHTML('beforeend',
       '<div class="event">' +
-        '<span class="name"></span>' +
-        '<span class="msg"></span>' +
-        '<div style="clear: both;"></div>' +
+      '<span class="name"></span>' +
+      '<span class="msg"></span>' +
+      '<div style="clear: both;"></div>' +
       '</div>');
   }
   // remove extra dom entries
@@ -3858,7 +3893,7 @@ function renderEvents() {
 function getEventMessageHtml(ev) {
   var fn = eventTypeMessageFns[ev.type];
   if (!fn) throw new Error("Unknown event type: " + ev.type);
-  var flags = {safe: false};
+  var flags = { safe: false };
   var text = fn(ev, flags);
   return flags.safe ? text : escapeHtml(text);
 }
@@ -3919,8 +3954,8 @@ function renderOnlineUsers() {
   for (i = eventsOnlineUsersDom.childElementCount; i < sortedConnectedUsers.length; i += 1) {
     eventsOnlineUsersDom.insertAdjacentHTML('beforeend',
       '<div class="user">' +
-        '<span class="streaming icon icon-signal-diag"></span>' +
-        '<span class="name"></span>' +
+      '<span class="streaming icon icon-signal-diag"></span>' +
+      '<span class="name"></span>' +
       '</div>');
   }
   // remove extra dom entries
@@ -3949,7 +3984,7 @@ function ensureSearchHappensSoon() {
   }
   // give the user a small timeout between key presses to finish typing.
   // otherwise, we might be bogged down displaying the search results for "a" or the like.
-  searchTimer = setTimeout(function() {
+  searchTimer = setTimeout(function () {
     player.search(libFilterDom.value);
     searchTimer = null;
   }, 100);
@@ -3958,55 +3993,55 @@ function ensureSearchHappensSoon() {
 function onLibFilterKeyDown(ev) {
   ev.stopPropagation();
   switch (ev.which) {
-  case 27: // Escape
-    ev.preventDefault();
-    if (libFilterDom.value.length === 0) {
-      libFilterDom.blur();
-    } else {
-      // queue up a search refresh now, because if the user holds Escape,
-      // it will blur the search box, and we won't get a keyup for Escape.
-      setTimeout(clearBoxAndSearch, 0);
-    }
-    return;
-  case 13: // Enter
-    ev.preventDefault();
-    var keys = [];
-    for (var i = 0; i < player.searchResults.artistList.length; i += 1) {
-      var artist = player.searchResults.artistList[i];
-      for (var j = 0; j < artist.albumList.length; j += 1) {
-        var album = artist.albumList[j];
-        for (var k = 0; k < album.trackList.length; k += 1) {
-          var track = album.trackList[k];
-          keys.push(track.key);
+    case 27: // Escape
+      ev.preventDefault();
+      if (libFilterDom.value.length === 0) {
+        libFilterDom.blur();
+      } else {
+        // queue up a search refresh now, because if the user holds Escape,
+        // it will blur the search box, and we won't get a keyup for Escape.
+        setTimeout(clearBoxAndSearch, 0);
+      }
+      return;
+    case 13: // Enter
+      ev.preventDefault();
+      var keys = [];
+      for (var i = 0; i < player.searchResults.artistList.length; i += 1) {
+        var artist = player.searchResults.artistList[i];
+        for (var j = 0; j < artist.albumList.length; j += 1) {
+          var album = artist.albumList[j];
+          for (var k = 0; k < album.trackList.length; k += 1) {
+            var track = album.trackList[k];
+            keys.push(track.key);
+          }
         }
       }
-    }
-    if (ev.altKey) shuffle(keys);
-    if (keys.length > 2000) {
-      if (!confirm("You are about to queue " + keys.length + " songs.")) {
-        return;
+      if (ev.altKey) shuffle(keys);
+      if (keys.length > 2000) {
+        if (!confirm("You are about to queue " + keys.length + " songs.")) {
+          return;
+        }
       }
-    }
-    if (ev.shiftKey) {
-      player.queueTracksNext(keys);
-    } else {
-      player.queueOnQueue(keys);
-    }
-    return;
-  case 40:
-    ev.preventDefault();
-    selection.selectOnlyFirstPos('library');
-    selection.scrollToCursor();
-    refreshSelection();
-    libFilterDom.blur();
-    return;
-  case 38:
-    ev.preventDefault();
-    selection.selectOnlyLastPos('library');
-    selection.scrollToCursor();
-    refreshSelection();
-    libFilterDom.blur();
-    return;
+      if (ev.shiftKey) {
+        player.queueTracksNext(keys);
+      } else {
+        player.queueOnQueue(keys);
+      }
+      return;
+    case 40:
+      ev.preventDefault();
+      selection.selectOnlyFirstPos('library');
+      selection.scrollToCursor();
+      refreshSelection();
+      libFilterDom.blur();
+      return;
+    case 38:
+      ev.preventDefault();
+      selection.selectOnlyLastPos('library');
+      selection.scrollToCursor();
+      refreshSelection();
+      libFilterDom.blur();
+      return;
   }
 
   function clearBoxAndSearch() {
@@ -4022,31 +4057,31 @@ function setUpLibraryUi() {
   libFilterDom.addEventListener('paste', ensureSearchHappensSoon, false);
   genericTreeUi(libraryArtistsDom, {
     toggleExpansion: toggleLibraryExpansion,
-    isSelectionOwner: function(){
+    isSelectionOwner: function () {
       return selection.isLibrary();
     }
   });
   contextMenuDom.addEventListener('mousedown', preventEventDefault, false);
 
-  menuQueue.addEventListener('click', function(ev) {
+  menuQueue.addEventListener('click', function (ev) {
     ev.stopPropagation();
     ev.preventDefault();
     player.queueOnQueue(selection.toTrackKeys());
     removeContextMenu();
   }, false);
-  menuQueueNext.addEventListener('click', function(ev) {
+  menuQueueNext.addEventListener('click', function (ev) {
     ev.stopPropagation();
     ev.preventDefault();
     player.queueTracksNext(selection.toTrackKeys());
     removeContextMenu();
   }, false);
-  menuQueueRandom.addEventListener('click', function(ev) {
+  menuQueueRandom.addEventListener('click', function (ev) {
     ev.stopPropagation();
     ev.preventDefault();
     player.queueOnQueue(selection.toTrackKeys(true));
     removeContextMenu();
   }, false);
-  menuQueueNextRandom.addEventListener('click', function(ev) {
+  menuQueueNextRandom.addEventListener('click', function (ev) {
     ev.stopPropagation();
     ev.preventDefault();
     player.queueTracksNext(selection.toTrackKeys(true));
@@ -4167,7 +4202,7 @@ function genericTreeUi(elem, options) {
       }
       rightMouseDown(ev);
     }
-    function leftMouseDown(ev){
+    function leftMouseDown(ev) {
       removeContextMenu();
       var skipDrag = false;
       if (!options.isSelectionOwner()) {
@@ -4189,7 +4224,7 @@ function genericTreeUi(elem, options) {
       refreshSelection();
       if (!skipDrag) {
         performDrag(ev, {
-          complete: function(result, ev){
+          complete: function (result, ev) {
             var delta = {
               top: 0,
               bottom: 1
@@ -4197,14 +4232,14 @@ function genericTreeUi(elem, options) {
             var keys = selection.toTrackKeys(ev.altKey);
             player.queueOnQueue(keys, result.previousKey, result.nextKey);
           },
-          cancel: function(){
+          cancel: function () {
             selection.selectOnly(type, key);
             refreshSelection();
           }
         });
       }
     }
-    function rightMouseDown(ev){
+    function rightMouseDown(ev) {
       ev.preventDefault();
       if (!options.isSelectionOwner() || selection.ids[type][key] == null) {
         selection.selectOnly(type, key);
@@ -4251,7 +4286,7 @@ function updateMenuDisableState(menu) {
   }
 
   function enableDisable(menuItemList, enable) {
-    menuItemList.forEach(function(menuItem) {
+    menuItemList.forEach(function (menuItem) {
       menuItem.setAttribute('title', enable ? '' : "Insufficient privileges. See Settings.");
       if (enable) {
         menuItem.classList.remove('disabled');
@@ -4349,7 +4384,7 @@ function setAllTabsHeight(h) {
 
 function getStreamerCount() {
   var count = player.anonStreamers;
-  player.usersList.forEach(function(user) {
+  player.usersList.forEach(function (user) {
     if (user.streaming) count += 1;
   });
   return count;
@@ -4456,28 +4491,28 @@ function init() {
   socket = new Socket();
   var queryObj = parseQueryString();
   if (queryObj.token) {
-    socket.on('connect', function() {
+    socket.on('connect', function () {
       socket.send('lastFmGetSession', queryObj.token);
     });
-    socket.on('lastFmGetSessionSuccess', function(params){
+    socket.on('lastFmGetSessionSuccess', function (params) {
       localState.lastfm.username = params.session.name;
       localState.lastfm.session_key = params.session.key;
       localState.lastfm.scrobbling_on = false;
       saveLocalState();
       refreshPage();
     });
-    socket.on('lastFmGetSessionError', function(message){
+    socket.on('lastFmGetSessionError', function (message) {
       alert("Error authenticating: " + message);
       refreshPage();
     });
     return;
   }
-  socket.on('hardwarePlayback', function(isOn) {
+  socket.on('hardwarePlayback', function (isOn) {
     hardwarePlaybackOn = isOn;
     updateSettingsAdminUi();
   });
   socket.on('lastFmApiKey', updateLastFmApiKey);
-  socket.on('user', function(data) {
+  socket.on('user', function (data) {
     myUser = data;
     authUsernameDisplayDom.textContent = myUser.name;
     if (!localState.authUsername || !localState.authPassword) {
@@ -4490,43 +4525,43 @@ function init() {
     }
     updateSettingsAuthUi();
   });
-  socket.on('token', function(token) {
+  socket.on('token', function (token) {
     document.cookie = "token=" + token + "; path=/";
   });
-  socket.on('streamEndpoint', function(data) {
+  socket.on('streamEndpoint', function (data) {
     streamEndpoint = data;
     updateStreamPlayer();
     updateStreamUrlUi();
   });
-  socket.on('autoDjOn', function(data) {
+  socket.on('autoDjOn', function (data) {
     autoDjOn = data;
     renderQueueButtons();
     triggerRenderQueue();
   });
-  socket.on('haveAdminUser', function(data) {
+  socket.on('haveAdminUser', function (data) {
     haveAdminUser = data;
     updateHaveAdminUserUi();
   });
-  socket.on('connect', function(){
+  socket.on('connect', function () {
     sendAuth();
     sendStreamingStatus();
-    socket.send('subscribe', {name: 'streamEndpoint'});
-    socket.send('subscribe', {name: 'autoDjOn'});
-    socket.send('subscribe', {name: 'hardwarePlayback'});
-    socket.send('subscribe', {name: 'haveAdminUser'});
+    socket.send('subscribe', { name: 'streamEndpoint' });
+    socket.send('subscribe', { name: 'autoDjOn' });
+    socket.send('subscribe', { name: 'hardwarePlayback' });
+    socket.send('subscribe', { name: 'haveAdminUser' });
     loadStatus = LoadStatus.GoodToGo;
     render();
     ensureSearchHappensSoon();
   });
   player = new PlayerClient(socket);
-  player.on('users', function() {
+  player.on('users', function () {
     updateSettingsAuthUi();
     renderEvents();
     renderOnlineUsers();
     renderStreamButton();
   });
   player.on('importProgress', renderImportProgress);
-  player.on('libraryUpdate', function() {
+  player.on('libraryUpdate', function () {
     triggerRenderLibrary();
     triggerLabelsUpdate();
     triggerRenderQueue();
@@ -4536,17 +4571,17 @@ function init() {
   player.on('queueUpdate', triggerRenderQueue);
   player.on('scanningUpdate', triggerRenderQueue);
   player.on('playlistsUpdate', triggerPlaylistsUpdate);
-  player.on('labelsUpdate', function() {
+  player.on('labelsUpdate', function () {
     triggerLabelsUpdate();
     triggerRenderQueue();
   });
   player.on('volumeUpdate', renderVolumeSlider);
-  player.on('statusUpdate', function(){
+  player.on('statusUpdate', function () {
     renderNowPlaying();
     renderQueueButtons();
     labelQueueItems();
   });
-  player.on('events', function() {
+  player.on('events', function () {
     if (activeTab === tabs.events && isBrowserTabActive) {
       player.markAllEventsSeen();
     }
@@ -4555,11 +4590,11 @@ function init() {
   player.on('currentTrack', updateStreamPlayer);
   player.on('anonStreamers', renderStreamButton);
   socket.on('seek', clearStreamBuffer);
-  socket.on('disconnect', function(){
+  socket.on('disconnect', function () {
     loadStatus = LoadStatus.NoServer;
     render();
   });
-  socket.on('error', function(err) {
+  socket.on('error', function (err) {
     console.error(err);
   });
 
@@ -4611,7 +4646,7 @@ function formatTime(seconds) {
 }
 
 function toHtmlId(string) {
-  return string.replace(/[^a-zA-Z0-9-]/gm, function(c) {
+  return string.replace(/[^a-zA-Z0-9-]/gm, function (c) {
     return "_" + c.charCodeAt(0) + "_";
   });
 }
@@ -4630,7 +4665,7 @@ function parseQueryString(s) {
   s = s || location.search.substring(1);
   var o = {};
   var pairs = s.split('&');
-  pairs.forEach(function(pair) {
+  pairs.forEach(function (pair) {
     var keyValueArr = pair.split('=');
     o[keyValueArr[0]] = keyValueArr[1];
   });
@@ -4661,7 +4696,7 @@ function extend(dest, src) {
   return dest;
 }
 
-function noop() {}
+function noop() { }
 
 function popDialog(dom, title, width, height) {
   blackoutDom.style.display = "";
@@ -4682,7 +4717,7 @@ function popDialog(dom, title, width, height) {
   dom.style.display = "";
   dom.focus();
 
-  closeOpenDialog = function() {
+  closeOpenDialog = function () {
     blackoutDom.style.display = "none";
     modalDom.style.display = "none";
     modalDom.style.display = "none";
