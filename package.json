@@ -21,7 +21,6 @@
     "curlydiff": "~2.0.1",
     "express": "~4.12.3",
     "findit2": "~2.2.3",
-    "googleapis": "~2.0.3",
     "groove": "~2.5.0",
     "httpolyglot": "~0.1.1",
     "keese": "~1.1.1",
@@ -38,8 +37,7 @@
     "serve-static": "~1.9.3",
     "yauzl": "~2.10.0",
     "yawl": "~1.0.2",
-    "yazl": "~2.4.1",
-    "ytdl-core": "~0.8.1"
+    "yazl": "~2.4.1"
   },
   "devDependencies": {
     "browserify-lite": "~0.2.4",
@@ -48,7 +46,7 @@
   },
   "scripts": {
     "start": "node lib/server.js",
-    "build": "npm install && ./build",
+    "build": "./build",
     "dev": "npm run build && node lib/server.js --verbose"
   }
 }

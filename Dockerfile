@@ -1,33 +1,56 @@
-FROM ubuntu:16.04
+# STAGE 1: Build the app in a legacy-compatible environment (Ubuntu 18.04)
+# This ensures native modules like node-groove and leveldown compile correctly.
+FROM ubuntu:18.04 AS builder
 
 WORKDIR /home/groovebasin
 
-RUN mkdir /home/groovebasin/music
-
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y make python g++ curl git \
-    && curl -sL https://deb.nodesource.com/setup_8.x -o nodesource_setup.sh \
-    && bash nodesource_setup.sh \
-    && apt-get install -y --allow-unauthenticated nodejs \
-    && npm install -g node-gyp
-
-RUN apt-get -y install \
-    ffmpeg libspeexdsp-dev \
-    libebur128-dev libsoundio-dev libchromaprint-dev \
+# Install legacy build tools and libraries
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    make python g++ curl git ffmpeg pkg-config \
+    libspeexdsp-dev libebur128-dev libsoundio-dev libchromaprint-dev \
     libgroove-dev libgrooveplayer-dev libgrooveloudness-dev \
     libgroovefingerprinter-dev
 
+# Install Node.js 8.17.0
+RUN curl -fsSL https://nodejs.org/dist/v8.17.0/node-v8.17.0-linux-x64.tar.gz | tar -xzC /usr/local --strip-components=1
+
+# Install app dependencies
 COPY package.json .
 RUN npm install
 
+# Copy source and build assets
 COPY . .
 RUN ./build
 
-# The ytdl-core patch was removed as it caused dependency issues on Node 8.
-# If YouTube imports fail, consider updating ytdl-core in package.json.
+# ---
+# STAGE 2: Final Runtime Image (Ubuntu 22.04)
+# This provides Python 3.10 out of the box for modern yt-dlp compatibility.
+FROM ubuntu:22.04
 
-# Create default config.json with all required settings to prevent exit on first run
+WORKDIR /home/groovebasin
+
+# Avoid interaction during package install
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install runtime dependencies
+# We install the same lib versions (4) as in 18.04 to maintain binary compatibility.
+RUN apt-get update && apt-get install -y \
+    curl ffmpeg python3 \
+    libspeexdsp1 libebur128-1 libsoundio2 libchromaprint1 \
+    libgroove4 libgrooveplayer4 libgrooveloudness4 libgroovefingerprinter4 \
+    && ln -sf /usr/bin/python3 /usr/bin/python
+
+# Install Node.js 8.17.0 (it just needs to run the pre-built binaries)
+RUN curl -fsSL https://nodejs.org/dist/v8.17.0/node-v8.17.0-linux-x64.tar.gz | tar -xzC /usr/local --strip-components=1
+
+# Copy everything from the builder stage
+COPY --from=builder /home/groovebasin /home/groovebasin
+
+# Install yt-dlp (modern, robust YouTube downloader/searcher)
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+    chmod a+rx /usr/local/bin/yt-dlp
+
+# Create default config.json
 RUN echo '{\n\
     "host": "0.0.0.0",\n\
     "port": 16242,\n\
@@ -43,14 +66,17 @@ RUN echo '{\n\
     "sslKey": null,\n\
     "sslCert": null,\n\
     "sslCaDir": null,\n\
-    "googleApiKey": "AIzaSyDdTDD8-gu_kp7dXtT-53xKcVbrboNAkpM",\n\
     "ignoreExtensions": [\n\
         ".jpg", ".jpeg", ".txt", ".png", ".log", ".cue", ".pdf", ".m3u",\n\
         ".nfo", ".ini", ".xml", ".zip"\n\
     ]\n\
 }' > config.json
 
+# Expose ports
 EXPOSE 16242
 EXPOSE 6600
+
+# Create music directory
+RUN mkdir -p /home/groovebasin/music
 
 CMD ["npm", "start"]
