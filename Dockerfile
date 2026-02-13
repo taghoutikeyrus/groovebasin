@@ -9,7 +9,7 @@ RUN apt-get update \
     && apt-get install -y make python g++ curl git \
     && curl -sL https://deb.nodesource.com/setup_8.x -o nodesource_setup.sh \
     && bash nodesource_setup.sh \
-    && apt-get install -y nodejs \
+    && apt-get install -y --allow-unauthenticated nodejs \
     && npm install -g node-gyp
 
 RUN apt-get -y install \
@@ -22,17 +22,33 @@ COPY package.json .
 RUN npm install
 
 COPY . .
-RUN npm run build
+RUN ./build
 
-# Fix Youtube import error by updating ytdl-core module
-RUN npm install ytdl-core@~0.29.5 --save
+# The ytdl-core patch was removed as it caused dependency issues on Node 8.
+# If YouTube imports fail, consider updating ytdl-core in package.json.
 
-# Generate default config.json
-RUN npm start; exit 0
-# Modify default config.json
-RUN sed -i 's/    "host": "127.0.0.1",/    "host": "0.0.0.0",/g' /home/groovebasin/config.json
-RUN sed -i 's/    "mpdHost": "127.0.0.1",/    "mpdHost": "0.0.0.0",/g' /home/groovebasin/config.json
-RUN sed -i 's/    "musicDirectory": "\/root",/    "musicDirectory": "\/home\/groovebasin\/music",/g' /home/groovebasin/config.json
+# Create default config.json with all required settings to prevent exit on first run
+RUN echo '{\n\
+    "host": "0.0.0.0",\n\
+    "port": 16242,\n\
+    "dbPath": "groovebasin.db",\n\
+    "musicDirectory": "/home/groovebasin/music",\n\
+    "lastFmApiKey": "bb9b81026cd44fd086fa5533420ac9b4",\n\
+    "lastFmApiSecret": "2309a40ae3e271de966bf320498a8f09",\n\
+    "mpdHost": "0.0.0.0",\n\
+    "mpdPort": 6600,\n\
+    "acoustidAppKey": "bgFvC4vW",\n\
+    "encodeQueueDuration": 8,\n\
+    "encodeBitRate": 256,\n\
+    "sslKey": null,\n\
+    "sslCert": null,\n\
+    "sslCaDir": null,\n\
+    "googleApiKey": "AIzaSyDdTDD8-gu_kp7dXtT-53xKcVbrboNAkpM",\n\
+    "ignoreExtensions": [\n\
+        ".jpg", ".jpeg", ".txt", ".png", ".log", ".cue", ".pdf", ".m3u",\n\
+        ".nfo", ".ini", ".xml", ".zip"\n\
+    ]\n\
+}' > config.json
 
 EXPOSE 16242
 EXPOSE 6600
